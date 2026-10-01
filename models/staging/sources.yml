@@ -1,0 +1,185 @@
+version: 2
+
+sources:
+  - name: coverdash_prod
+    description: "Coverdash production database — raw application tables"
+    schema: public
+    tables:
+      - name: Business
+        description: "Core business entity representing each customer account"
+        columns:
+          - name: id
+            description: "Unique identifier for the business"
+            tests:
+              - not_null
+              - unique
+          - name: createdAt
+            description: "Timestamp when the business record was created"
+          - name: name
+            description: "Business name"
+          - name: userId
+            description: "FK to User — the primary user who created this business"
+          - name: legalEntityType
+            description: "Legal structure (LLC, Corporation, Sole Proprietor, etc.)"
+          - name: totalAnnualRevenue
+            description: "Self-reported annual revenue in cents"
+          - name: totalAnnualPayroll
+            description: "Self-reported annual payroll in cents"
+          - name: totalNumberOfEmployees
+            description: "Total headcount including owners"
+          - name: yearsInBusiness
+            description: "How many years the business has been operating"
+
+      - name: Lead
+        description: "Tracks inbound leads assigned to Account Executives for follow-up"
+        columns:
+          - name: id
+            description: "Unique identifier for the lead"
+            tests:
+              - not_null
+              - unique
+          - name: businessId
+            description: "FK to Business — one lead per business"
+            tests:
+              - not_null
+          - name: accountExecutive
+            description: "Name or identifier of the AE assigned to this lead"
+          - name: createdAt
+            description: "Timestamp when the lead was created"
+          - name: score
+            description: "Lead quality score"
+          - name: madeContact
+            description: "Whether the AE successfully made contact with this lead"
+          - name: isJunk
+            description: "Whether this lead was marked as junk/invalid"
+          - name: expiryTime
+            description: "Timestamp when the lead expires from the AE's queue"
+
+      - name: Policy
+        description: "Bound insurance policies. One row per policy, with status tracking lifecycle."
+        columns:
+          - name: id
+            description: "Unique identifier for the policy"
+            tests:
+              - not_null
+              - unique
+          - name: businessId
+            description: "FK to Business"
+          - name: carrierId
+            description: "FK to insurance carrier"
+          - name: policyType
+            description: "Line of business (GL, BOP, WC, Cyber, etc.)"
+          - name: status
+            description: "Current policy status (BOUND, CANCELLED, EXPIRED, etc.)"
+          - name: effectiveDate
+            description: "Date coverage begins"
+          - name: expiryDate
+            description: "Date coverage ends"
+          - name: premium
+            description: "Total policy premium in dollars"
+          - name: commissionablePremium
+            description: "Portion of premium eligible for commission calculation"
+          - name: commissionRate
+            description: "Commission rate as a decimal (e.g. 0.12 = 12%)"
+          - name: licenseName
+            description: "License/program used to bind this policy"
+          - name: accountExecutive
+            description: "AE credited with this policy sale"
+          - name: isRenewal
+            description: "Whether this is a renewal of an existing policy"
+          - name: saleType
+            description: "NEW_BUSINESS, RENEWAL, BOR, etc."
+          - name: salesChannel
+            description: "Channel through which the sale originated"
+          - name: cancellationStatus
+            description: "Cancellation state if policy was cancelled"
+
+      - name: Quote
+        description: "Insurance quotes generated for businesses. Multiple quotes per application possible."
+        columns:
+          - name: id
+            description: "Unique identifier for the quote"
+            tests:
+              - not_null
+              - unique
+          - name: businessId
+            description: "FK to Business"
+          - name: applicationSubmissionId
+            description: "FK to ApplicationSubmission"
+          - name: carrierId
+            description: "Carrier that generated this quote"
+          - name: price
+            description: "Quoted premium in dollars"
+          - name: status
+            description: "Quote status (ACTIVE, BOUND, EXPIRED, etc.)"
+          - name: licenseName
+            description: "License/program associated with this quote"
+          - name: commissionRate
+            description: "Expected commission rate"
+          - name: createdAt
+            description: "When the quote was generated"
+
+      - name: ApplicationSubmission
+        description: "Insurance applications submitted by businesses, one per policy type per business"
+        columns:
+          - name: id
+            description: "Unique identifier for the application"
+            tests:
+              - not_null
+              - unique
+          - name: businessId
+            description: "FK to Business"
+          - name: policyType
+            description: "Line of business being applied for"
+          - name: status
+            description: "Application status (NEW, IN_PROGRESS, QUOTED, BOUND, etc.)"
+          - name: licenseName
+            description: "License/program for this application"
+          - name: source
+            description: "Where the application originated (Coverdash Website, API, etc.)"
+          - name: isCrossSell
+            description: "Whether this is a cross-sell application for an existing customer"
+          - name: createdAt
+            description: "When the application was started"
+
+      - name: User
+        description: "End users (customers) who have created accounts on the platform"
+        columns:
+          - name: id
+            description: "Unique identifier for the user"
+            tests:
+              - not_null
+              - unique
+          - name: email
+            description: "User email address"
+            tests:
+              - not_null
+              - unique
+          - name: firstName
+            description: "User first name"
+          - name: lastName
+            description: "User last name"
+          - name: createdAt
+            description: "When the user account was created"
+          - name: lastLogin
+            description: "Timestamp of most recent login"
+          - name: isActive
+            description: "Whether the account is currently active"
+
+      - name: Opportunity
+        description: "Tracks sales opportunities per business per policy type, synced with Close CRM"
+        columns:
+          - name: id
+            description: "Unique identifier for the opportunity"
+          - name: businessId
+            description: "FK to Business"
+          - name: policyId
+            description: "FK to Policy once bound"
+          - name: policyType
+            description: "Line of business this opportunity is for"
+          - name: status
+            description: "Opportunity status (OPEN, WON, LOST, etc.)"
+          - name: closeOpportunityId
+            description: "Corresponding opportunity ID in Close CRM"
+          - name: createdAt
+            description: "When the opportunity was created"

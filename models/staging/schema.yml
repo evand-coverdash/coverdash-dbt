@@ -1,0 +1,156 @@
+version: 2
+
+models:
+  - name: stg_business
+    description: "Cleaned and renamed business records. One row per business."
+    columns:
+      - name: business_id
+        description: "Primary key — unique identifier for the business"
+        tests:
+          - not_null
+          - unique
+      - name: user_id
+        description: "FK to stg_user — the user who owns this business"
+      - name: business_name
+        description: "Name of the business"
+      - name: legal_entity_type
+        description: "Legal structure (LLC, Corporation, Sole Proprietor, etc.)"
+      - name: total_annual_revenue
+        description: "Self-reported annual revenue in cents"
+      - name: total_annual_payroll
+        description: "Self-reported annual payroll in cents"
+      - name: total_number_of_employees
+        description: "Total employee headcount"
+      - name: created_at
+        description: "Timestamp when the business record was first created"
+
+  - name: stg_lead
+    description: "Inbound leads assigned to Account Executives. One lead per business."
+    columns:
+      - name: lead_id
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: business_id
+        description: "FK to stg_business"
+        tests:
+          - not_null
+      - name: account_executive
+        description: "AE assigned to work this lead"
+      - name: made_contact
+        description: "True if the AE successfully reached the lead"
+      - name: is_junk
+        description: "True if the lead was marked as invalid or junk"
+      - name: score
+        description: "Lead quality score — higher is better"
+      - name: created_at
+        description: "When the lead entered the system"
+      - name: expiry_time
+        description: "When the lead expires from the AE's active queue"
+
+  - name: stg_policy
+    description: "Bound insurance policies with full lifecycle tracking."
+    columns:
+      - name: policy_id
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: business_id
+        description: "FK to stg_business"
+      - name: policy_type
+        description: "Line of business (GL, BOP, WC, Cyber, PL, etc.)"
+      - name: license_name
+        description: "License/program under which this policy was bound"
+      - name: status
+        description: "Current policy status — BOUND is active; CANCELLED means coverage ended early"
+      - name: premium
+        description: "Total policy premium in dollars"
+      - name: commissionable_premium
+        description: "Portion of premium eligible for commission"
+      - name: commission_rate
+        description: "Commission rate as a decimal (0.12 = 12%)"
+      - name: estimated_commission
+        description: "Calculated as commissionable_premium × commission_rate"
+      - name: account_executive
+        description: "AE credited with this sale"
+      - name: is_renewal
+        description: "True if this policy renews a prior policy"
+      - name: sale_type
+        description: "NEW_BUSINESS, RENEWAL, BOR, CANCEL_REWRITE, etc."
+      - name: effective_date
+        description: "Date coverage begins"
+      - name: expiry_date
+        description: "Date coverage ends"
+      - name: created_at
+        description: "When the policy record was created (typically bind date)"
+
+  - name: stg_quote
+    description: "Insurance quotes generated for businesses."
+    columns:
+      - name: quote_id
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: business_id
+        description: "FK to stg_business"
+      - name: application_submission_id
+        description: "FK to stg_application_submission"
+      - name: license_name
+        description: "License/program for this quote"
+      - name: quoted_premium
+        description: "Total quoted premium in dollars"
+      - name: status
+        description: "Quote status — ACTIVE, BOUND, EXPIRED, etc."
+      - name: commission_rate
+        description: "Expected commission rate on this quote"
+      - name: created_at
+        description: "When the quote was generated"
+
+  - name: stg_application_submission
+    description: "Insurance applications started by businesses, one per policy type."
+    columns:
+      - name: application_submission_id
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: business_id
+        description: "FK to stg_business"
+      - name: policy_type
+        description: "Line of business being applied for"
+      - name: license_name
+        description: "License/program for this application"
+      - name: status
+        description: "Application status — NEW, IN_PROGRESS, QUOTED, BOUND, etc."
+      - name: submission_source
+        description: "Where the application originated (Coverdash Website, API, Partner, etc.)"
+      - name: is_cross_sell
+        description: "True if this is a cross-sell to an existing customer"
+      - name: created_at
+        description: "When the application was started"
+
+  - name: stg_user
+    description: "Customer user accounts on the Coverdash platform."
+    columns:
+      - name: user_id
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: email
+        description: "User email address — unique identifier for login"
+        tests:
+          - not_null
+      - name: first_name
+        description: "User first name"
+      - name: last_name
+        description: "User last name"
+      - name: is_active
+        description: "Whether the account is currently active"
+      - name: created_at
+        description: "When the user signed up"
+      - name: last_login
+        description: "Most recent login timestamp"

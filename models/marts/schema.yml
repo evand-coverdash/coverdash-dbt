@@ -1,0 +1,142 @@
+version: 2
+
+models:
+  - name: business_funnel_daily
+    description: >
+      Daily funnel metrics showing how businesses move from application start
+      through quote and policy bind. Broken out by license name so you can
+      compare conversion health across programs. One row per day × license_name.
+    columns:
+      - name: activity_date
+        description: "Calendar date the activity occurred"
+        tests:
+          - not_null
+      - name: license_name
+        description: "License/program the row is scoped to"
+        tests:
+          - not_null
+      - name: businesses_created
+        description: "Number of new business records created on this date (across all license types)"
+      - name: businesses_with_app
+        description: "Distinct businesses that started an application on this date"
+      - name: applications_started
+        description: "Total application submissions started on this date"
+      - name: businesses_quoted
+        description: "Distinct businesses that received at least one quote on this date"
+      - name: quotes_generated
+        description: "Total quotes generated on this date"
+      - name: businesses_bound
+        description: "Distinct businesses that bound at least one policy on this date"
+      - name: policies_bound
+        description: "Total policies bound on this date"
+      - name: total_premium_bound
+        description: "Sum of premium for all policies bound on this date"
+      - name: total_estimated_commission
+        description: "Sum of estimated commission for all policies bound on this date"
+      - name: quote_to_bind_rate_pct
+        description: "Percentage of quotes that converted to a bound policy on this date"
+
+  - name: ae_performance_monthly
+    description: >
+      Monthly scorecard per Account Executive. Tracks lead volume, contact rate,
+      policies sold, and revenue. One row per AE × calendar month.
+      AEs with zero activity in a month are excluded.
+    columns:
+      - name: activity_month
+        description: "First day of the calendar month"
+        tests:
+          - not_null
+      - name: account_executive
+        description: "Name or identifier of the Account Executive"
+        tests:
+          - not_null
+      - name: leads_assigned
+        description: "Number of leads assigned to this AE in the month"
+      - name: leads_contacted
+        description: "Number of leads where made_contact = true"
+      - name: leads_marked_junk
+        description: "Number of leads the AE marked as junk"
+      - name: avg_lead_score
+        description: "Average lead quality score for leads assigned this month"
+      - name: policies_bound
+        description: "Total policies bound by this AE in the month"
+      - name: new_policies_bound
+        description: "New business (non-renewal) policies bound"
+      - name: renewals_bound
+        description: "Renewal policies bound"
+      - name: unique_businesses_bound
+        description: "Distinct businesses that bound at least one policy through this AE"
+      - name: total_premium
+        description: "Total premium written by this AE in the month"
+      - name: total_estimated_commission
+        description: "Total estimated commission attributable to this AE"
+      - name: avg_premium_per_policy
+        description: "Average premium per policy bound"
+      - name: distinct_policy_types
+        description: "Number of distinct lines of business bound by this AE"
+      - name: contact_rate_pct
+        description: "Percentage of assigned leads where contact was made"
+      - name: contact_to_bind_rate_pct
+        description: "Percentage of contacted leads that resulted in a bound policy"
+      - name: overall_close_rate_pct
+        description: "Percentage of all assigned leads that resulted in a bound policy"
+
+  - name: policy_revenue_summary
+    description: >
+      Monthly premium and commission revenue broken out by policy type, license,
+      carrier, and sale attributes. One row per bound_month × policy_type ×
+      license_name × underwriting_carrier × billing_type × sale_type × sales_channel
+      × is_renewal × is_paygo combination. Use for revenue trending and program mix.
+    columns:
+      - name: bound_month
+        description: "First day of the month policies were bound"
+        tests:
+          - not_null
+      - name: bound_quarter
+        description: "First day of the quarter policies were bound"
+      - name: bound_year
+        description: "Year policies were bound"
+      - name: policy_type
+        description: "Line of business (GL, BOP, WC, Cyber, PL, etc.)"
+      - name: license_name
+        description: "License/program under which policies were bound"
+      - name: underwriting_carrier
+        description: "Name of the underwriting carrier"
+      - name: billing_type
+        description: "How premium is billed (Annual, Monthly, etc.)"
+      - name: sale_type
+        description: "NEW_BUSINESS, RENEWAL, BOR, CANCEL_REWRITE, etc."
+      - name: sales_channel
+        description: "Distribution channel through which policies were sold"
+      - name: is_renewal
+        description: "True if these policies are renewals"
+      - name: is_paygo
+        description: "True if these policies use pay-as-you-go billing"
+      - name: policies_bound
+        description: "Count of policies bound in this group"
+      - name: unique_businesses
+        description: "Count of distinct businesses that bound policies in this group"
+      - name: gross_written_premium
+        description: "Total premium written across all policies in this group"
+      - name: total_commissionable_premium
+        description: "Total premium eligible for commission"
+      - name: total_estimated_commission
+        description: "Total estimated commission earned"
+      - name: total_mmr_fees
+        description: "Total monthly minimum revenue fees"
+      - name: avg_premium
+        description: "Average premium per policy"
+      - name: avg_commission_rate
+        description: "Average commission rate across policies"
+      - name: new_business_policies
+        description: "Count of non-renewal policies"
+      - name: renewal_policies
+        description: "Count of renewal policies"
+      - name: new_business_premium
+        description: "Premium from non-renewal policies"
+      - name: renewal_premium
+        description: "Premium from renewal policies"
+      - name: renewal_rate_pct
+        description: "Percentage of policies that are renewals"
+      - name: effective_commission_rate_pct
+        description: "Estimated commission as a percentage of gross written premium"

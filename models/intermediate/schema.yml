@@ -1,0 +1,131 @@
+version: 2
+
+models:
+  - name: int_business_latest
+    description: >
+      One row per business. Joins the business record with its assigned lead
+      and aggregated policy history. Used as the base for funnel and
+      conversion analysis.
+    columns:
+      - name: business_id
+        description: "Primary key — unique identifier for the business"
+        tests:
+          - not_null
+          - unique
+      - name: user_id
+        description: "FK to stg_user — the user who created the business"
+      - name: business_name
+        description: "Registered business name"
+      - name: legal_entity_type
+        description: "Legal structure (LLC, Corporation, Sole Proprietor, etc.)"
+      - name: total_annual_revenue
+        description: "Self-reported annual revenue in cents"
+      - name: total_annual_payroll
+        description: "Self-reported annual payroll in cents"
+      - name: total_number_of_employees
+        description: "Total employee headcount"
+      - name: years_in_business
+        description: "Number of years the business has been operating"
+      - name: business_created_at
+        description: "Timestamp when the business record was first created"
+      - name: lead_id
+        description: "FK to stg_lead — the inbound lead record for this business (null if no lead)"
+      - name: account_executive
+        description: "AE assigned to the lead; null if the business came in without a lead"
+      - name: made_contact
+        description: "True if the AE successfully reached the lead"
+      - name: is_junk
+        description: "True if the lead was marked as invalid or junk"
+      - name: lead_score
+        description: "Lead quality score — higher is better"
+      - name: lead_created_at
+        description: "When the lead entered the system"
+      - name: lead_expiry_time
+        description: "When the lead expires from the AE's active queue"
+      - name: first_policy_created_at
+        description: "Timestamp of the first BOUND policy for this business; null if none"
+      - name: total_policies_bound
+        description: "Total count of BOUND policies ever issued to this business"
+      - name: total_lifetime_premium
+        description: "Sum of premium across all BOUND policies for this business"
+      - name: has_bound_policy
+        description: "True if the business has at least one BOUND policy"
+      - name: days_lead_to_first_policy
+        description: >
+          Number of days between lead creation and the first bound policy.
+          Null if either the lead or the policy is missing.
+
+  - name: int_policy_revenue
+    description: >
+      BOUND policies enriched with revenue fields and time dimensions.
+      Used as the base layer for all revenue and commission mart models.
+    columns:
+      - name: policy_id
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: business_id
+        description: "FK to stg_business"
+      - name: carrier_id
+        description: "FK to the carrier that issued this policy"
+      - name: quote_id
+        description: "FK to stg_quote — the accepted quote that became this policy"
+      - name: close_opportunity_id
+        description: "FK to Close CRM opportunity linked to this policy"
+      - name: renewed_from_policy_id
+        description: "FK to the prior policy this one renews; null for new business"
+      - name: policy_type
+        description: "Line of business (GL, BOP, WC, Cyber, PL, etc.)"
+      - name: license_name
+        description: "License/program under which this policy was bound"
+      - name: billing_type
+        description: "How the premium is billed (Annual, Monthly, etc.)"
+      - name: sale_type
+        description: "NEW_BUSINESS, RENEWAL, BOR, CANCEL_REWRITE, etc."
+      - name: sales_channel
+        description: "Distribution channel through which the policy was sold"
+      - name: underwriting_carrier
+        description: "Name of the underwriting carrier"
+      - name: account_executive
+        description: "AE credited with this sale"
+      - name: assigned_agent
+        description: "Agent assigned to manage this policy"
+      - name: is_renewal
+        description: "True if this policy renews a prior policy"
+      - name: renewal_count
+        description: "How many times this policy has been renewed"
+      - name: bor_renewal
+        description: "True if this is a broker-of-record renewal"
+      - name: is_auto_bind
+        description: "True if the policy was issued via automated binding"
+      - name: is_paygo
+        description: "True if this policy uses pay-as-you-go billing"
+      - name: premium
+        description: "Total policy premium in dollars"
+      - name: commissionable_premium
+        description: "Portion of premium eligible for commission"
+      - name: commission_rate
+        description: "Commission rate as a decimal (0.12 = 12%)"
+      - name: estimated_commission
+        description: "Calculated as commissionable_premium × commission_rate"
+      - name: mmr_fee
+        description: "Monthly minimum revenue fee, if applicable"
+      - name: effective_date
+        description: "Date coverage begins"
+      - name: expiry_date
+        description: "Date coverage ends"
+      - name: bound_at
+        description: "Timestamp when the policy was bound (created_at from source)"
+      - name: bound_date
+        description: "Calendar date the policy was bound"
+      - name: bound_week
+        description: "ISO week start date (Monday) of the bound date"
+      - name: bound_month
+        description: "First day of the month the policy was bound"
+      - name: bound_quarter
+        description: "First day of the quarter the policy was bound"
+      - name: bound_year
+        description: "Year the policy was bound"
+      - name: effective_month
+        description: "First day of the month coverage begins"
