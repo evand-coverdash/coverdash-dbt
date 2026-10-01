@@ -12,6 +12,7 @@ renamed as (
         -- assignment
         "accountExecutive"              as account_executive,
         "workflowTypeAssigned"          as workflow_type_assigned,
+        "previousAccountExecutives"     as previous_account_executives,
 
         -- status
         score,

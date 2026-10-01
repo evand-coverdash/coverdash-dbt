@@ -1,156 +1,218 @@
 version: 2
 
+# Staging = one model per source table: rename to snake_case, cast money to numeric, normalize
+# timestamps to Eastern, add simple row-level flags. No business filtering and no grain changes.
+
 models:
   - name: stg_business
-    description: "Cleaned and renamed business records. One row per business."
+    description: "Cleaned business records. One row per business."
     columns:
       - name: business_id
-        description: "Primary key — unique identifier for the business"
-        tests:
-          - not_null
-          - unique
+        description: "Primary key"
+        tests: [not_null, unique]
       - name: user_id
-        description: "FK to stg_user — the user who owns this business"
-      - name: business_name
-        description: "Name of the business"
-      - name: legal_entity_type
-        description: "Legal structure (LLC, Corporation, Sole Proprietor, etc.)"
+        description: "FK to stg_user, the business owner"
+      - name: license_name
+        description: "Partner license the business came through (FK to stg_license)"
+      - name: credited_account_executive
+        description: "coalesce(soldBy, accountExecutive). Can be the literal 'API Account'."
+      - name: campaign_type
+        description: "'Test' if warm_transfer_campaign contains 'carrier', else 'Prod'"
+        tests:
+          - accepted_values:
+              values: ['Test', 'Prod']
+      - name: is_test_flag
+        description: "Business.isTest only. Use int_business.is_test_business for the full test rule."
       - name: total_annual_revenue
-        description: "Self-reported annual revenue in cents"
+        description: "Self-reported annual revenue in dollars"
       - name: total_annual_payroll
-        description: "Self-reported annual payroll in cents"
-      - name: total_number_of_employees
-        description: "Total employee headcount"
+        description: "Self-reported annual payroll in dollars"
       - name: created_at
-        description: "Timestamp when the business record was first created"
+        description: "When the business was created (Eastern)"
+        tests: [not_null]
+
+  - name: stg_user
+    description: "Customer user accounts. One row per user."
+    columns:
+      - name: user_id
+        description: "Primary key"
+        tests: [not_null, unique]
+      - name: email
+        tests: [not_null]
+      - name: full_name
+        description: "first_name + last_name"
+      - name: is_test_name
+        description: "True if the name contains COVERDASH or TEST (the app's test-data rule)"
 
   - name: stg_lead
-    description: "Inbound leads assigned to Account Executives. One lead per business."
+    description: "Lead-assignment record per business (AE timer, contact, junk). Effectively one per business."
     columns:
       - name: lead_id
         description: "Primary key"
-        tests:
-          - not_null
-          - unique
+        tests: [not_null, unique]
       - name: business_id
         description: "FK to stg_business"
-        tests:
-          - not_null
       - name: account_executive
-        description: "AE assigned to work this lead"
-      - name: made_contact
-        description: "True if the AE successfully reached the lead"
-      - name: is_junk
-        description: "True if the lead was marked as invalid or junk"
-      - name: score
-        description: "Lead quality score — higher is better"
-      - name: created_at
-        description: "When the lead entered the system"
-      - name: expiry_time
-        description: "When the lead expires from the AE's active queue"
+        description: "AE currently assigned to the lead (text name; ~1.3k don't match a current employee)"
+      - name: workflow_type_assigned
+        description: "HIGH_TOUCH / LOW_TOUCH"
 
   - name: stg_policy
-    description: "Bound insurance policies with full lifecycle tracking."
+    description: "One row per policy term, all statuses."
     columns:
       - name: policy_id
         description: "Primary key"
-        tests:
-          - not_null
-          - unique
+        tests: [not_null, unique]
       - name: business_id
-        description: "FK to stg_business"
-      - name: policy_type
-        description: "Line of business (GL, BOP, WC, Cyber, PL, etc.)"
-      - name: license_name
-        description: "License/program under which this policy was bound"
-      - name: status
-        description: "Current policy status — BOUND is active; CANCELLED means coverage ended early"
-      - name: premium
-        description: "Total policy premium in dollars"
-      - name: commissionable_premium
-        description: "Portion of premium eligible for commission"
-      - name: commission_rate
-        description: "Commission rate as a decimal (0.12 = 12%)"
-      - name: estimated_commission
-        description: "Calculated as commissionable_premium × commission_rate"
-      - name: account_executive
-        description: "AE credited with this sale"
-      - name: is_renewal
-        description: "True if this policy renews a prior policy"
+        tests: [not_null]
       - name: sale_type
-        description: "NEW_BUSINESS, RENEWAL, BOR, CANCEL_REWRITE, etc."
-      - name: effective_date
-        description: "Date coverage begins"
-      - name: expiry_date
-        description: "Date coverage ends"
+        description: "NULL coalesced to NEW_BUSINESS"
+        tests: [not_null]
+      - name: is_new_business
+        description: "sale_type = 'NEW_BUSINESS' (cross-sell excluded)"
+      - name: is_retained_sale_type
+        description: "sale_type in RENEWAL / REMARKET / RENEWAL_CANCEL_REWRITE"
+      - name: is_active
+        description: "status = 'BOUND' (every BOUND policy has a future expiry date)"
+      - name: premium
+        description: "Annual term premium, numeric dollars"
       - name: created_at
-        description: "When the policy record was created (typically bind date)"
+        description: "When the policy was entered in our system (Eastern); the bind date for reporting"
+
+  - name: stg_policy_transaction
+    description: "One row per PolicyTransaction (the revenue ledger)."
+    columns:
+      - name: policy_transaction_id
+        description: "Primary key"
+        tests: [not_null, unique]
+      - name: policy_id
+        description: "FK to stg_policy"
+      - name: signed_amount
+        description: "RECEIVABLE = +amount, PAYABLE = -amount (numeric)"
+      - name: is_partial_installment
+        description: "COMMISSION_PARTIAL / TECHNOLOGY_ACCESS_FEE_PARTIAL. Always exclude from revenue."
+      - name: is_core_revenue
+        description: "COMMISSION + TECHNOLOGY_ACCESS_FEE + AGENCY_FEE"
+      - name: is_gross_revenue
+        description: "Every type except CANCELLATION and the *_PARTIAL types"
+      - name: created_at
+        description: "When the row was booked (Eastern)"
 
   - name: stg_quote
-    description: "Insurance quotes generated for businesses."
+    description: "One row per quote."
     columns:
       - name: quote_id
         description: "Primary key"
-        tests:
-          - not_null
-          - unique
-      - name: business_id
-        description: "FK to stg_business"
-      - name: application_submission_id
-        description: "FK to stg_application_submission"
-      - name: license_name
-        description: "License/program for this quote"
+        tests: [not_null, unique]
       - name: quoted_premium
-        description: "Total quoted premium in dollars"
-      - name: status
-        description: "Quote status — ACTIVE, BOUND, EXPIRED, etc."
-      - name: commission_rate
-        description: "Expected commission rate on this quote"
+        description: "Quote.price as numeric"
       - name: created_at
-        description: "When the quote was generated"
+        description: "Quote time converted from UTC to Eastern wall-clock"
+      - name: created_at_utc
+        description: "Raw Quote.createdAt (timestamptz, UTC)"
+
+  - name: stg_carrier
+    description: "One row per carrier / wholesaler."
+    columns:
+      - name: carrier_id
+        tests: [not_null, unique]
+      - name: carrier_group
+        description: "Chubb / GAIG / Other: carriers tracked individually in reporting"
+        tests:
+          - accepted_values:
+              values: ['Chubb', 'GAIG', 'Other']
+      - name: is_test_carrier
+        description: "carrier_name = 'Fake Insurance'"
 
   - name: stg_application_submission
-    description: "Insurance applications started by businesses, one per policy type."
+    description: "One row per application (business x line of coverage)."
     columns:
       - name: application_submission_id
         description: "Primary key"
-        tests:
-          - not_null
-          - unique
-      - name: business_id
-        description: "FK to stg_business"
-      - name: policy_type
-        description: "Line of business being applied for"
-      - name: license_name
-        description: "License/program for this application"
-      - name: status
-        description: "Application status — NEW, IN_PROGRESS, QUOTED, BOUND, etc."
-      - name: submission_source
-        description: "Where the application originated (Coverdash Website, API, Partner, etc.)"
-      - name: is_cross_sell
-        description: "True if this is a cross-sell to an existing customer"
-      - name: created_at
-        description: "When the application was started"
+        tests: [not_null, unique]
+      - name: is_submitted
+        description: "status in COMPLETED / SENT_TO_QUOTING_ENGINE / NO_QUOTES_RETURNED"
+      - name: is_admin_rater
+        description: "Admin quoting tool, no checkout batch"
+      - name: is_manual_application
+        description: "Admin quoting tool, attached to a checkout batch"
 
-  - name: stg_user
-    description: "Customer user accounts on the Coverdash platform."
+  - name: stg_opportunity
+    description: "One row per sales opportunity (business x line), mirrored from Close."
     columns:
-      - name: user_id
-        description: "Primary key"
+      - name: opportunity_id
+        tests: [not_null, unique]
+
+  - name: stg_opportunity_status_history
+    description: "One row per opportunity change event, with business_id denormalized."
+    columns:
+      - name: opportunity_status_history_id
+        tests: [not_null, unique]
+      - name: change_type
         tests:
-          - not_null
-          - unique
-      - name: email
-        description: "User email address — unique identifier for login"
+          - accepted_values:
+              values: ['STATUS', 'ASSIGNEE', 'CONFIDENCE']
+
+  - name: stg_business_close_status_change
+    description: >
+      One row per real change to Business.closeStatus, from ChangeLog (coverage starts 2025-09-22).
+      Deletions (newValue NULL) and no-op rows are dropped.
+    columns:
+      - name: change_log_id
+        tests: [not_null, unique]
+      - name: business_id
+        tests: [not_null]
+
+  - name: stg_warm_transfer
+    description: >
+      One row per warm-transfer ping. business_id is NULL on most rejected pings, so use this model
+      for ping counts, acceptance and rejection reasons.
+    columns:
+      - name: warm_transfer_id
+        tests: [not_null, unique]
+      - name: claimed_status
+        description: "NULL coalesced to CLAIMED"
+      - name: payload_vendor
+        description: "Vendor inferred from the request payload shape (awlToken / pro_email / duns keys)"
+      - name: rejection_reason_category
+        description: "Bucketed rejection_reason"
+      - name: bid_price
+        description: "Vendor bid price, numeric (populated on rejected pings too)"
+
+  - name: stg_campaign_status
+    description: "One row per warm-transfer / call campaign."
+    columns:
+      - name: campaign_status_id
+        tests: [not_null, unique]
+
+  - name: stg_employee_contact_information
+    description: "One row per Coverdash employee."
+    columns:
+      - name: employee_id
+        tests: [not_null, unique]
+      - name: employee_name
+        description: "Join key for Business.accountExecutive / accountManager / soldBy"
+        tests: [unique]
+
+  - name: stg_license
+    description: "One row per partner license, with partner name and acquisition-channel bucket."
+    columns:
+      - name: license_name
+        tests: [not_null, unique]
+      - name: transfer_type
+        description: "Warm Transfer / Data Lead / Other Non-Partner / Partner"
         tests:
-          - not_null
-      - name: first_name
-        description: "User first name"
-      - name: last_name
-        description: "User last name"
-      - name: is_active
-        description: "Whether the account is currently active"
-      - name: created_at
-        description: "When the user signed up"
-      - name: last_login
-        description: "Most recent login timestamp"
+          - accepted_values:
+              values: ['Warm Transfer', 'Data Lead', 'Other Non-Partner', 'Partner']
+
+  - name: stg_business_classification
+    description: "One row per industry classification."
+    columns:
+      - name: business_classification_id
+        tests: [not_null, unique]
+
+  - name: stg_partner
+    description: "One row per partner company. Secrets are not selected."
+    columns:
+      - name: partner_id
+        tests: [not_null, unique]

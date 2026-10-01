@@ -140,3 +140,75 @@ models:
         description: "Percentage of policies that are renewals"
       - name: effective_commission_rate_pct
         description: "Estimated commission as a percentage of gross written premium"
+
+  - name: wt_tracker_daily
+    description: >
+      Business-cohort warm-transfer tracker; replaces the Google Sheets master query.
+      One row per business_created_date x license_name x claimed_status x warm_transfer_campaign x
+      credited_account_executive x workflow_type. Test businesses excluded; filter dates and
+      licenses in the BI tool. All *_count / revenue / premium columns are additive; compute
+      rates as ratio-of-sums (e.g. sum(d7_converted_business_count) / sum(business_count),
+      avg days to quote = sum(total_days_to_d30_quote) / sum(d30_quoted_business_count)).
+      Revenue excludes *_PARTIAL; quote timing uses Eastern dates.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - business_created_date
+            - license_name
+            - claimed_status
+            - warm_transfer_campaign
+            - credited_account_executive
+            - workflow_type
+    columns:
+      - name: business_created_date
+        description: "Cohort date (Eastern)"
+        tests: [not_null]
+      - name: claimed_status
+        description: "OTHER (no warm transfer) / CLAIMED / UNCLAIMED"
+      - name: is_mature_d7
+        description: "1 if the cohort date is at least 7 days ago at build time (also d14, d30)"
+      - name: transfer_type
+        description: "Warm Transfer / Data Lead / Other Non-Partner / Partner"
+      - name: business_count
+        description: "Businesses created"
+      - name: total_bid_price
+        description: "Bid price of the warm transfers that created these businesses"
+      - name: total_days_to_d30_quote
+        description: "Sum of days to first quote for businesses quoted within 30 days"
+      - name: d7_chubb_quoted_premium
+        description: "All Chubb quoted premium for businesses whose first Chubb quote came within 7 days (tracker definition)"
+      - name: nb_gross_revenue
+        description: "Signed NB ledger amounts, all types except CANCELLATION and *_PARTIAL (also d7/d14/d30)"
+
+  - name: wt_pings_daily
+    description: >
+      Ping-level warm-transfer tracker: pings, acceptances, rejections with reasons, claimed
+      (answered) transfers, cost, and downstream conversion of the businesses created.
+      One row per ping_date x partner_name x campaign_name x status x claimed_status x
+      rejection_reason x credited_account_executive. Partner is resolved per ping
+      (campaign -> business license -> payload shape; see int_warm_transfer).
+    columns:
+      - name: ping_date
+        description: "Date the ping arrived (Eastern)"
+        tests: [not_null]
+      - name: partner_name
+        description: "Lead vendor; 'Unknown' for the few pings that can't be attributed"
+        tests: [not_null]
+      - name: campaign_name
+        description: "CampaignStatus name, else the AWL campaign from the payload, else Business.warmTransferCampaign"
+      - name: status
+        description: "ACCEPTED / REJECTED / RECEIVED / ERROR"
+      - name: rejection_reason_category
+        description: "Bucketed rejection reason (daily cap, hours, no AE, lead requirements, ...)"
+      - name: ping_count
+        description: "Pings received"
+      - name: claimed_count
+        description: "Accepted pings an AE claimed (answered)"
+      - name: accepted_bid_price
+        description: "Bid price on accepted pings (the cost)"
+      - name: offered_bid_price
+        description: "Bid price on all pings, including rejected"
+      - name: business_count
+        description: "Businesses created by these pings"
+      - name: d7_converted_business_count
+        description: "Created businesses with a first policy within 7 days (also d30, ever)"
