@@ -1,59 +1,128 @@
 version: 2
 
 models:
-  - name: int_business_latest
+  - name: int_business
     description: >
-      One row per business. Joins the business record with its assigned lead
-      and aggregated policy history. Used as the base for funnel and
-      conversion analysis.
+      One row per business: dimensions, funnel milestone timestamps, 0/1 cohort flags, and the
+      premium / revenue measures from the warm-transfer tracker. Aggregate it by any dimension;
+      sum(dN_*) flags give the tracker's *BusinessCount columns. All windows are measured in
+      calendar days from business_created_date (Eastern). Test businesses are flagged, not removed.
+      Policies and quotes on 'Fake Insurance' are excluded from every rollup. Materialized as a table.
     columns:
+      # keys / dimensions
       - name: business_id
-        description: "Primary key — unique identifier for the business"
+        description: "Primary key"
+        tests: [not_null, unique]
+      - name: is_test_business
+        description: "Business.isTest OR owner name contains COVERDASH/TEST. Filter this out in marts."
+      - name: business_created_date
+        description: "Cohort date (Eastern)"
+      - name: business_age_days
+        description: "Days between business_created_date and today (Eastern) at build time"
+      - name: license_name
+        description: "Partner license the business came through"
+      - name: partner_name
+        description: "Partner that owns the license"
+      - name: transfer_type
+        description: "Warm Transfer / Data Lead / Other Non-Partner / Partner (from stg_license)"
+      - name: warm_transfer_campaign
+        description: "Business.warmTransferCampaign"
+      - name: campaign_type
+        description: "'Test' if the campaign name contains 'carrier', else 'Prod'"
+      - name: claimed_status
+        description: "OTHER if no warm transfer; else the transfer's claimed status (NULL = CLAIMED)"
         tests:
-          - not_null
-          - unique
-      - name: user_id
-        description: "FK to stg_user — the user who created the business"
-      - name: business_name
-        description: "Registered business name"
-      - name: legal_entity_type
-        description: "Legal structure (LLC, Corporation, Sole Proprietor, etc.)"
-      - name: total_annual_revenue
-        description: "Self-reported annual revenue in cents"
-      - name: total_annual_payroll
-        description: "Self-reported annual payroll in cents"
-      - name: total_number_of_employees
-        description: "Total employee headcount"
-      - name: years_in_business
-        description: "Number of years the business has been operating"
-      - name: business_created_at
-        description: "Timestamp when the business record was first created"
-      - name: lead_id
-        description: "FK to stg_lead — the inbound lead record for this business (null if no lead)"
-      - name: account_executive
-        description: "AE assigned to the lead; null if the business came in without a lead"
-      - name: made_contact
-        description: "True if the AE successfully reached the lead"
-      - name: is_junk
-        description: "True if the lead was marked as invalid or junk"
-      - name: lead_score
-        description: "Lead quality score — higher is better"
-      - name: lead_created_at
-        description: "When the lead entered the system"
-      - name: lead_expiry_time
-        description: "When the lead expires from the AE's active queue"
+          - accepted_values:
+              values: ['OTHER', 'CLAIMED', 'UNCLAIMED']
+      - name: warm_transfer_bid_price
+        description: "Bid price paid for this business's warm transfer (0 if none)"
+      - name: credited_account_executive
+        description: "coalesce(soldBy, accountExecutive)"
+      - name: credited_ae_team
+        description: "Growth / Core / Enterprise for the credited AE"
+      - name: lead_account_executive
+        description: "AE on the Lead record (used by ae_performance_monthly)"
+      - name: workflow_type
+        description: "Lead workflow HIGH_TOUCH / LOW_TOUCH, or NONE"
+
+      # maturity
+      - name: is_mature_d7
+        description: "1 if the cohort is at least 7 days old (also _d14, _d30, _d60, _d90)"
+
+      # milestone timestamps (Eastern)
+      - name: first_attempted_to_contact_at
+        description: "First Close status change to 'Attempted to Contact' (ChangeLog, from 2025-09-22)"
+      - name: first_made_contact_at
+        description: "First Close status change to 'Made Contact'"
+      - name: first_junk_at
+        description: "First Close status change to 'Junk'"
+      - name: first_application_submitted_at
+        description: "First application with status COMPLETED / SENT_TO_QUOTING_ENGINE / NO_QUOTES_RETURNED"
+      - name: first_quote_presented_at
+        description: "First opportunity status change to QUOTE_PRESENTED"
+      - name: first_quote_created_at
+        description: "First quote, converted from UTC to Eastern"
       - name: first_policy_created_at
-        description: "Timestamp of the first BOUND policy for this business; null if none"
-      - name: total_policies_bound
-        description: "Total count of BOUND policies ever issued to this business"
-      - name: total_lifetime_premium
-        description: "Sum of premium across all BOUND policies for this business"
-      - name: has_bound_policy
-        description: "True if the business has at least one BOUND policy"
-      - name: days_lead_to_first_policy
+        description: "First policy of any sale type or status"
+      - name: first_nb_policy_created_at
+        description: "First NEW_BUSINESS policy"
+      - name: first_nb_cancellation_booked_at
+        description: "First CANCELLATION transaction booked on a NEW_BUSINESS policy"
+
+      # cohort flags (0/1)
+      - name: d7_attempted_to_contact
+        description: "1 if first 'Attempted to Contact' within 7 days"
+      - name: d7_made_contact
+        description: "1 if first 'Made Contact' within 7 days"
+      - name: d7_junk
+        description: "1 if first 'Junk' within 7 days"
+      - name: quoted
+        description: "1 if the business ever received a quote"
+      - name: d7_quoted
+        description: "1 if first quote within 7 days (also d30_quoted)"
+      - name: days_to_d30_quote
+        description: "days_to_first_quote when <= 30, else NULL. sum() = tracker's totalTimeToD30Quote"
+      - name: d7_quote_presented
+        description: "1 if first QUOTE_PRESENTED within 7 days"
+      - name: converted
+        description: "1 if the business ever had a policy"
+      - name: d7_converted
+        description: "1 if first policy within 7 days (also d1, d14, d30, d60, d90)"
+      - name: d7_chubb_quoted
+        description: "1 if first Chubb quote within 7 days"
+      - name: d7_chubb_converted
+        description: "1 if first NEW_BUSINESS Chubb policy within 7 days (also d30)"
+      - name: d7_gaig_quoted
+        description: "1 if first GAIG quote within 7 days"
+      - name: d7_gaig_converted
+        description: "1 if first NEW_BUSINESS GAIG policy within 7 days (also d30)"
+
+      # volume and premium
+      - name: quote_count
+        description: "Quotes for the business"
+      - name: chubb_quoted_premium
+        description: "All Chubb quoted premium. sum() where d7_chubb_quoted = 1 gives the tracker's d7ChubbQuotedPremiumAmount"
+      - name: gaig_quoted_premium
+        description: "All GAIG quoted premium (same pairing with d7_gaig_quoted)"
+      - name: policy_count
+        description: "Policies of any sale type or status"
+      - name: nb_premium
+        description: "Premium on NEW_BUSINESS policies"
+      - name: d30_nb_premium
+        description: "Premium on NEW_BUSINESS policies created within 30 days (also Chubb / GAIG variants)"
+
+      # revenue
+      - name: d7_nb_gross_revenue
         description: >
-          Number of days between lead creation and the first bound policy.
-          Null if either the lead or the policy is missing.
+          Signed PolicyTransaction amount on NEW_BUSINESS policies, booked within 7 days of business
+          creation. Every type except CANCELLATION; *_PARTIAL excluded. Also d14, d30, and lifetime
+          (nb_gross_revenue), plus d30 Chubb / GAIG.
+      - name: d30_nb_core_revenue
+        description: "Commission + tech fee + agency fee on NB policies booked within 30 days (also lifetime nb_core_revenue)"
+      - name: nb_cancellation_amount
+        description: "Signed CANCELLATION amounts on NB policies (clawbacks are negative)"
+      - name: total_core_revenue
+        description: "Commission + tech fee + agency fee across all sale types"
 
   - name: int_policy_revenue
     description: >
@@ -102,7 +171,7 @@ models:
       - name: is_paygo
         description: "True if this policy uses pay-as-you-go billing"
       - name: premium
-        description: "Total policy premium in dollars"
+        description: "Total policy premium in dollars (numeric)"
       - name: commissionable_premium
         description: "Portion of premium eligible for commission"
       - name: commission_rate
@@ -129,3 +198,23 @@ models:
         description: "Year the policy was bound"
       - name: effective_month
         description: "First day of the month coverage begins"
+
+  - name: int_warm_transfer
+    description: >
+      One row per warm-transfer ping, with partner and campaign resolved and the created
+      business's outcome joined from int_business.
+    columns:
+      - name: warm_transfer_id
+        tests: [not_null, unique]
+      - name: partner_name
+        description: "coalesce(campaign partner, business license partner, payload vendor, 'Unknown')"
+        tests: [not_null]
+      - name: partner_resolved_from
+        description: "campaign / business / payload / unknown"
+        tests:
+          - accepted_values:
+              values: ['campaign', 'business', 'payload', 'unknown']
+      - name: claimed_status
+        description: "Set only on accepted pings (NULL coalesced to CLAIMED)"
+      - name: accepted_bid_price
+        description: "bid_price when the ping was accepted, else NULL"

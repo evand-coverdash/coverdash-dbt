@@ -11,13 +11,13 @@
 with leads as (
     select
         date_trunc('month', lead_created_at)::date      as activity_month,
-        account_executive,
+        lead_account_executive                          as account_executive,
         count(lead_id)                                  as leads_assigned,
         count(case when made_contact then 1 end)        as leads_contacted,
         count(case when is_junk then 1 end)             as leads_marked_junk,
         avg(lead_score)                                 as avg_lead_score
-    from {{ ref('int_business_latest') }}
-    where account_executive is not null
+    from {{ ref('int_business') }}
+    where lead_account_executive is not null
       and lead_id is not null
     group by 1, 2
 ),

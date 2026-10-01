@@ -22,9 +22,9 @@ sources:
           - name: legalEntityType
             description: "Legal structure (LLC, Corporation, Sole Proprietor, etc.)"
           - name: totalAnnualRevenue
-            description: "Self-reported annual revenue in cents"
+            description: "Self-reported annual revenue in dollars"
           - name: totalAnnualPayroll
-            description: "Self-reported annual payroll in cents"
+            description: "Self-reported annual payroll in dollars"
           - name: totalNumberOfEmployees
             description: "Total headcount including owners"
           - name: yearsInBusiness
@@ -183,3 +183,63 @@ sources:
             description: "Corresponding opportunity ID in Close CRM"
           - name: createdAt
             description: "When the opportunity was created"
+
+      - name: PolicyTransaction
+        description: "Revenue ledger. Many rows per policy. Signed by direction (RECEIVABLE +, PAYABLE -)."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+          - name: policyId
+            description: "FK to Policy"
+
+      - name: Carrier
+        description: "Carriers and wholesalers. 'Fake Insurance' is test data."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+
+      - name: ChangeLog
+        description: "Field-level audit log, starting 2025-09-22. ~2.7M rows; always filter entityType + fieldName."
+
+      - name: OpportunityStatusHistory
+        description: "Opportunity change log (STATUS / ASSIGNEE / CONFIDENCE)."
+
+      - name: WarmTransfer
+        description: "Warm-transfer pings from lead vendors. businessId is NULL on most rejected pings."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+
+      - name: CampaignStatus
+        description: "Warm-transfer and call campaigns."
+
+      - name: EmployeeContactInformation
+        description: "Coverdash employees. name joins to Business.accountExecutive / accountManager / soldBy."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+          - name: name
+            tests:
+              - unique
+
+      - name: License
+        description: "Partner licenses (integrations / placements). name joins to Business.licenseName."
+        columns:
+          - name: name
+            tests:
+              - not_null
+              - unique
+
+      - name: Partner
+        description: "Partner companies; one or more licenses each."
+
+      - name: BusinessClassification
+        description: "Industry taxonomy (NAICS-based)."

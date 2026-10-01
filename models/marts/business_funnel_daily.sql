@@ -18,9 +18,9 @@ with businesses as (
     select
         date_trunc('day', business_created_at)::date   as activity_date,
         business_id,
-        has_bound_policy,
+        active_policy_count > 0                         as has_bound_policy,
         first_policy_created_at
-    from {{ ref('int_business_latest') }}
+    from {{ ref('int_business') }}
 ),
 
 applications as (
@@ -90,7 +90,7 @@ daily_signups as (
     select
         date_trunc('day', business_created_at)::date    as activity_date,
         count(business_id)                              as businesses_created
-    from {{ ref('int_business_latest') }}
+    from {{ ref('int_business') }}
     group by 1
 ),
 
