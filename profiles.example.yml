@@ -1,34 +1,42 @@
 # Copy to profiles.yml (gitignored) or to ~/.dbt/profiles.yml.
-# Connection details come from environment variables so no credentials live in files:
-#   DBT_HOST, DBT_PORT, DBT_DBNAME, DBT_USER, DBT_PASSWORD
 #
-# Both targets connect to the ANALYTICS database (never the prod app database).
-# Raw app tables are read through the foreign-table schema set by the source_schema var
-# (default: replica), which points at the prod read replica via postgres_fdw.
+# dbt connects to the PRODUCTION PRIMARY of coverdash-prod (writes can't go to a replica).
+# The dbt login (pscale_api_gjhxhe7cnogv):
+#   - can create tables in the `analytics` schema only
+#   - is read-only everywhere else (pg_read_all_data), so the app tables in `public` can't change
+#   - can't create schemas, so every model lands in the target schema below
+# Everything dbt builds appears on the read replicas within about a second; point BI tools at
+# the replica (user name with the `|replica` suffix).
+#
+# Only the password is secret; set it in your shell, never in this file:
+#   export DBT_PASSWORD=...        (PowerShell: $env:DBT_PASSWORD = "...")
 
 coverdash_analytics:
-  target: dev
+  target: prod
   outputs:
-    dev:
+    prod:
       type: postgres
-      host: "{{ env_var('DBT_HOST') }}"
-      port: "{{ env_var('DBT_PORT', '5432') | int }}"
-      dbname: "{{ env_var('DBT_DBNAME') }}"
-      user: "{{ env_var('DBT_USER') }}"
+      host: "{{ env_var('DBT_HOST', 'us-east-1.pg.psdb.cloud') }}"
+      port: 5432
+      dbname: postgres
+      user: "{{ env_var('DBT_USER', 'pscale_api_gjhxhe7cnogv.df5pi3b1h553') }}"
       password: "{{ env_var('DBT_PASSWORD') }}"
-      schema: dbt_analytics_dev        # dev models land in dbt_analytics_dev_<layer>
+      schema: analytics                # dashboards read these tables
       threads: 4
       connect_timeout: 10
       sslmode: require
 
-    prod:
+    # Needs a second schema (analytics_dev) with the same grants as `analytics`; it doesn't
+    # exist yet. Until it does, don't use this target. With one schema, a dev run would
+    # overwrite the tables the dashboards read.
+    dev:
       type: postgres
-      host: "{{ env_var('DBT_HOST') }}"
-      port: "{{ env_var('DBT_PORT', '5432') | int }}"
-      dbname: "{{ env_var('DBT_DBNAME') }}"
-      user: "{{ env_var('DBT_USER') }}"
+      host: "{{ env_var('DBT_HOST', 'us-east-1.pg.psdb.cloud') }}"
+      port: 5432
+      dbname: postgres
+      user: "{{ env_var('DBT_USER', 'pscale_api_gjhxhe7cnogv.df5pi3b1h553') }}"
       password: "{{ env_var('DBT_PASSWORD') }}"
-      schema: analytics                # prod models land in staging / intermediate / marts
+      schema: analytics_dev
       threads: 4
       connect_timeout: 10
       sslmode: require

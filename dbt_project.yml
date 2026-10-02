@@ -17,19 +17,20 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+# Every model lands in the profile's target schema (prod: analytics). The dbt login can create
+# tables in that one schema but can't create schemas, so there are no per-layer schemas; the
+# stg_ / int_ name prefixes mark the layers. Everything is a table: views would depend on the
+# app tables in public and could block the app's schema migrations.
 models:
   coverdash_analytics:
     staging:
       +materialized: table
-      +schema: staging
     intermediate:
       +materialized: table
-      +schema: intermediate
     marts:
       +materialized: table
-      +schema: marts
 
 vars:
-  # Schema in the analytics database that holds the postgres_fdw foreign tables pointing at the
-  # prod read replica. Override per run with --vars '{source_schema: ...}' if needed.
-  source_schema: replica
+  # Schema holding the raw app tables. dbt runs in the prod database and reads them directly
+  # (read-only). Override per run with --vars '{source_schema: ...}' if needed.
+  source_schema: public
