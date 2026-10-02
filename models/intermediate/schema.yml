@@ -33,7 +33,8 @@ models:
         description: "OTHER if no warm transfer; else the transfer's claimed status (NULL = CLAIMED)"
         tests:
           - accepted_values:
-              values: ['OTHER', 'CLAIMED', 'UNCLAIMED']
+              arguments:
+                values: ['OTHER', 'CLAIMED', 'UNCLAIMED']
       - name: warm_transfer_bid_price
         description: "Bid price paid for this business's warm transfer (0 if none)"
       - name: credited_account_executive
@@ -213,7 +214,8 @@ models:
         description: "campaign / business / payload / unknown"
         tests:
           - accepted_values:
-              values: ['campaign', 'business', 'payload', 'unknown']
+              arguments:
+                values: ['campaign', 'business', 'payload', 'unknown']
       - name: claimed_status
         description: "Set only on accepted pings (NULL coalesced to CLAIMED)"
       - name: accepted_bid_price

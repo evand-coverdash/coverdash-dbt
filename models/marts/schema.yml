@@ -152,13 +152,14 @@ models:
       Revenue excludes *_PARTIAL; quote timing uses Eastern dates.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - business_created_date
-            - license_name
-            - claimed_status
-            - warm_transfer_campaign
-            - credited_account_executive
-            - workflow_type
+          arguments:
+            combination_of_columns:
+              - business_created_date
+              - license_name
+              - claimed_status
+              - warm_transfer_campaign
+              - credited_account_executive
+              - workflow_type
     columns:
       - name: business_created_date
         description: "Cohort date (Eastern)"

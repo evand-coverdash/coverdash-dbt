@@ -20,7 +20,8 @@ models:
         description: "'Test' if warm_transfer_campaign contains 'carrier', else 'Prod'"
         tests:
           - accepted_values:
-              values: ['Test', 'Prod']
+              arguments:
+                values: ['Test', 'Prod']
       - name: is_test_flag
         description: "Business.isTest only. Use int_business.is_test_business for the full test rule."
       - name: total_annual_revenue
@@ -120,7 +121,8 @@ models:
         description: "Chubb / GAIG / Other: carriers tracked individually in reporting"
         tests:
           - accepted_values:
-              values: ['Chubb', 'GAIG', 'Other']
+              arguments:
+                values: ['Chubb', 'GAIG', 'Other']
       - name: is_test_carrier
         description: "carrier_name = 'Fake Insurance'"
 
@@ -151,7 +153,8 @@ models:
       - name: change_type
         tests:
           - accepted_values:
-              values: ['STATUS', 'ASSIGNEE', 'CONFIDENCE']
+              arguments:
+                values: ['STATUS', 'ASSIGNEE', 'CONFIDENCE']
 
   - name: stg_business_close_status_change
     description: >
@@ -203,7 +206,8 @@ models:
         description: "Warm Transfer / Data Lead / Other Non-Partner / Partner"
         tests:
           - accepted_values:
-              values: ['Warm Transfer', 'Data Lead', 'Other Non-Partner', 'Partner']
+              arguments:
+                values: ['Warm Transfer', 'Data Lead', 'Other Non-Partner', 'Partner']
 
   - name: stg_business_classification
     description: "One row per industry classification."

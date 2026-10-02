@@ -2,8 +2,8 @@ version: 2
 
 sources:
   - name: coverdash_prod
-    description: "Coverdash production database — raw application tables"
-    schema: public
+    description: "Coverdash production app tables (Prisma-managed, schema public). Read-only for dbt."
+    schema: "{{ var('source_schema', 'public') }}"
     tables:
       - name: Business
         description: "Core business entity representing each customer account"
