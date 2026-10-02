@@ -246,3 +246,19 @@ sources:
 
       - name: BusinessClassification
         description: "Industry taxonomy (NAICS-based)."
+
+      - name: RingbaCallLog
+        description: "Inbound calls tracked by Ringba. callDt is UTC; ingestedAt is Eastern."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+
+      - name: RingbaCallEvent
+        description: "Ringba call events (routing, answer, duplicate, ...). eventTimestamp is UTC. targetName = AE."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique

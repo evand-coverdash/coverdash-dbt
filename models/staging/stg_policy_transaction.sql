@@ -11,6 +11,7 @@
     - is_core_revenue: COMMISSION + TECHNOLOGY_ACCESS_FEE + AGENCY_FEE (the admin app's definition).
     - is_gross_revenue: every type except CANCELLATION and the partials (the warm-transfer tracker's
       "gross revenue", i.e. core + ENDORSEMENT + OTHER + REFUND).
+    - is_cancellation_driven: used by the NB sales 90-day rule (int_nb_revenue_transaction).
     - created_at = when the row was booked (Eastern).
 */
 
@@ -35,6 +36,14 @@ renamed as (
         "transactionType" not in ('CANCELLATION', 'COMMISSION_PARTIAL', 'TECHNOLOGY_ACCESS_FEE_PARTIAL')
                                                         as is_gross_revenue,
         "transactionType" = 'CANCELLATION'              as is_cancellation,
+        -- cancellation-driven: CANCELLATION rows, or commission / tech / agency PAYABLE rows whose
+        -- description mentions "cancel" (automated cancellation offsets, manual return-commission).
+        -- Rate-correction offset pairs are NOT cancellation-driven.
+        "transactionType" = 'CANCELLATION'
+            or ("transactionType" in ('COMMISSION', 'TECHNOLOGY_ACCESS_FEE', 'AGENCY_FEE')
+                and direction = 'PAYABLE'
+                and coalesce(description, '') ilike '%cancel%')
+                                                        as is_cancellation_driven,
         case
             when "transactionType" in ('COMMISSION', 'COMMISSION_PARTIAL')                       then 'COMMISSION'
             when "transactionType" in ('TECHNOLOGY_ACCESS_FEE', 'TECHNOLOGY_ACCESS_FEE_PARTIAL',

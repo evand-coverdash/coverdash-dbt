@@ -213,3 +213,68 @@ models:
         description: "Businesses created by these pings"
       - name: d7_converted_business_count
         description: "Created businesses with a first policy within 7 days (also d30, ever)"
+
+  - name: dim_date
+    description: "One row per calendar day, 2023-01-01 through the end of next year. Join daily marts to it to fill gaps or roll up by week / month / quarter."
+    columns:
+      - name: date_day
+        tests: [not_null, unique]
+
+  - name: nb_sales_daily
+    description: >
+      Daily NB sales: net NB revenue by booking date (Scenario D) and AE Sales policies by policy
+      created date. Grain: activity_date x same_month_sale x license_name x account_executive.
+      Roll up with month_start; business_count sums correctly within a calendar month (each business
+      counted on its first revenue day of the month). Reconciled to the monthly Scenario D query to the
+      cent for Jan-Oct 2026.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [activity_date, same_month_sale, license_name, account_executive]
+    columns:
+      - name: activity_date
+        description: "Booking date for revenue rows, policy created date for policy rows (Eastern)"
+        tests: [not_null]
+      - name: same_month_sale
+        description: "Activity month = the business's created month"
+      - name: account_executive
+        description: "Business.soldBy (NULL kept; AE Sales shows it as 'API Account')"
+      - name: transfer_type
+        description: "From stg_license (the shared list)"
+      - name: nb_net_revenue
+        description: "commission + tech_fee + endorsement + cancellation (the old ae_gross_revenue)"
+      - name: business_count
+        description: "Businesses with counted revenue, each counted once per calendar month on its first revenue day"
+      - name: ae_sales_policies
+        description: "Policies counted by AE Sales (see int_ae_sales_policy)"
+
+  - name: ringba_calls_daily
+    description: >
+      Ringba calls by call_date x partner_name x campaign_name, each call counted once:
+      calls, routed, answered, missed, unrouted, duplicate, talk time, time to answer.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [call_date, partner_name, campaign_name]
+    columns:
+      - name: call_date
+        description: "Eastern call date"
+        tests: [not_null]
+      - name: missed_calls
+        description: "Routed to at least one AE, none picked up"
+
+  - name: ringba_ae_calls_daily
+    description: >
+      Ringba calls per AE by call_date x account_executive x partner_name: routed, answered, missed.
+      A call that rang several AEs counts once per AE; use ringba_calls_daily for call totals.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [call_date, account_executive, partner_name]
+    columns:
+      - name: calls_routed
+        description: "Calls routed to this AE (the old query's eventCount)"
+      - name: calls_answered
+        description: "Calls this AE answered (the old query's connectedCallCount)"
+      - name: calls_missed
+        description: "Calls this AE was dialed on and didn't answer"
