@@ -2,8 +2,8 @@ version: 2
 
 sources:
   - name: coverdash_prod
-    description: "Coverdash production database — raw application tables"
-    schema: public
+    description: "Coverdash production app tables, read from the prod read replica through postgres_fdw foreign tables"
+    schema: "{{ var('source_schema', 'replica') }}"   # foreign tables -> prod read replica
     tables:
       - name: Business
         description: "Core business entity representing each customer account"

@@ -1,6 +1,7 @@
 name: 'coverdash_analytics'
 version: '1.0.0'
 config-version: 2
+require-dbt-version: ">=1.10.0"   # generic-test arguments use the nested 'arguments:' syntax
 
 profile: 'coverdash_analytics'
 
@@ -19,11 +20,16 @@ clean-targets:
 models:
   coverdash_analytics:
     staging:
-      +materialized: view
+      +materialized: table
       +schema: staging
     intermediate:
-      +materialized: view
+      +materialized: table
       +schema: intermediate
     marts:
       +materialized: table
       +schema: marts
+
+vars:
+  # Schema in the analytics database that holds the postgres_fdw foreign tables pointing at the
+  # prod read replica. Override per run with --vars '{source_schema: ...}' if needed.
+  source_schema: replica
