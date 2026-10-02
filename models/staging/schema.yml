@@ -220,3 +220,32 @@ models:
     columns:
       - name: partner_id
         tests: [not_null, unique]
+
+  - name: stg_ringba_call
+    description: "One row per Ringba inbound call. Timestamps converted from UTC to Eastern; call_date falls back to ingestion date for never-routed calls."
+    columns:
+      - name: ringba_call_id
+        tests: [not_null, unique]
+      - name: called_at
+        description: "Call start, Eastern (callDt is stored in UTC)"
+      - name: call_date
+        description: "Eastern call date; ingestion date when callDt is missing"
+        tests: [not_null]
+
+  - name: stg_ringba_call_event
+    description: "One row per Ringba call event. target_name = the AE. rawPayload excluded."
+    columns:
+      - name: ringba_call_event_id
+        tests: [not_null, unique]
+      - name: ringba_call_id
+        tests: [not_null]
+      - name: event_at
+        description: "Event time, Eastern (eventTimestamp is stored in UTC)"
+
+  - name: stg_policy_status_change
+    description: "One row per Policy.status change from ChangeLog (from 2025-09-22), kept exactly as logged for the AE Sales snapshot."
+    columns:
+      - name: change_log_id
+        tests: [not_null, unique]
+      - name: policy_id
+        tests: [not_null]

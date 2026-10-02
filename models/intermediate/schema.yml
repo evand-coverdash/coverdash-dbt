@@ -222,3 +222,58 @@ models:
         description: "Set only on accepted pings (NULL coalesced to CLAIMED)"
       - name: accepted_bid_price
         description: "bid_price when the ping was accepted, else NULL"
+
+  - name: int_ringba_call
+    description: "One row per Ringba call with partner / campaign and routing outcome (routed, answered, missed, unrouted, duplicate)."
+    columns:
+      - name: ringba_call_id
+        tests: [not_null, unique]
+      - name: partner_name
+        description: "Campaign's partner; 'Other' when the call has no campaign"
+        tests: [not_null]
+      - name: is_answered
+        description: "An AE picked up (ConnectedCall); matches RingbaCallLog.hasConnected"
+      - name: is_missed
+        description: "Routed to at least one AE, none picked up"
+      - name: is_duplicate
+        description: "Ringba flagged the caller as a repeat (DuplicateCall). Still routed and answered normally."
+
+  - name: int_ringba_call_ae
+    description: "One row per Ringba call x AE it was routed to."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ringba_call_id, account_executive]
+    columns:
+      - name: account_executive
+        description: "RingbaCallEvent.targetName (matches EmployeeContactInformation.name)"
+        tests: [not_null]
+      - name: was_missed
+        description: "Dialed and didn't pick up (another AE may have answered)"
+
+  - name: int_nb_revenue_transaction
+    description: >
+      One row per PolicyTransaction counted in net NB revenue (Scenario D): NB policies only;
+      COMMISSION / TECHNOLOGY_ACCESS_FEE / AGENCY_FEE / ENDORSEMENT / CANCELLATION; cancellation-driven
+      rows only within 90 days of policy creation; test data excluded. Dated by booking.
+    columns:
+      - name: policy_transaction_id
+        tests: [not_null, unique]
+      - name: revenue_bucket
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['COMMISSION', 'TECH_FEE', 'ENDORSEMENT', 'CANCELLATION']
+
+  - name: int_ae_sales_policy
+    description: >
+      One row per policy with the AE Sales "policies bound" eligibility rebuilt as of the monthly
+      snapshot (05:05 ET on the 1st of the following month), mirroring frozen AccountExecutiveStat.
+    columns:
+      - name: policy_id
+        tests: [not_null, unique]
+      - name: status_at_snapshot
+        description: "Policy status at the snapshot, rebuilt from ChangeLog (current status if no change logged)"
+      - name: is_ae_sales_policy
+        description: "Counts toward AE Sales policies bound"
+        tests: [not_null]
