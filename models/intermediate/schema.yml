@@ -148,7 +148,9 @@ models:
       - name: policy_type
         description: "Line of business (GL, BOP, WC, Cyber, PL, etc.)"
       - name: license_name
-        description: "License/program under which this policy was bound"
+        description: "The business's partner license (not Policy.licenseName, which is mostly empty); '(no license)' if the business has none"
+      - name: policy_license_name
+        description: "Policy.licenseName as entered on the policy (often NULL)"
       - name: billing_type
         description: "How the premium is billed (Annual, Monthly, etc.)"
       - name: sale_type

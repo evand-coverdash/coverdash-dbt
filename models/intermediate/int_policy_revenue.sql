@@ -3,11 +3,19 @@
   ------------------
   Bound policies enriched with revenue calculations and time dimensions.
   Used as the base for all revenue and commission mart models.
+
+  license_name is the BUSINESS's license (the partner), not Policy.licenseName, which is empty
+  on ~77% of active policies. The policy's own value is kept as policy_license_name.
 */
 
 with policy as (
-    select * from {{ ref('stg_policy') }}
-    where status = 'BOUND'
+    select
+        p.*,
+        b.license_name                                      as business_license_name
+    from {{ ref('stg_policy') }} p
+    left join {{ ref('stg_business') }} b
+        on b.business_id = p.business_id
+    where p.status = 'BOUND'
 ),
 
 enriched as (
@@ -22,7 +30,8 @@ enriched as (
 
         -- dimensions
         policy_type,
-        license_name,
+        coalesce(business_license_name, '(no license)')     as license_name,
+        license_name                                        as policy_license_name,
         billing_type,
         sale_type,
         sales_channel,
