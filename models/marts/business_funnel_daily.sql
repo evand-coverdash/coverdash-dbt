@@ -12,9 +12,21 @@
 
   Use this model to track day-level conversion rates and identify where
   businesses are dropping off in the funnel.
+
+  license_name is always the BUSINESS's license (the partner it came through), never the
+  event's own licenseName. Policy.licenseName is empty on ~77% of active policies and
+  Quote.licenseName on some quotes, which used to drop them into a NULL bucket.
+  Businesses with no license are labelled '(no license)'.
 */
 
-with businesses as (
+with business_license as (
+    select
+        business_id,
+        coalesce(license_name, '(no license)')          as license_name
+    from {{ ref('stg_business') }}
+),
+
+businesses as (
     select
         date_trunc('day', business_created_at)::date   as activity_date,
         business_id,
@@ -25,32 +37,38 @@ with businesses as (
 
 applications as (
     select
-        date_trunc('day', created_at)::date             as activity_date,
-        business_id,
-        license_name,
-        application_submission_id
-    from {{ ref('stg_application_submission') }}
-    where not is_admin_quoting_tool
+        date_trunc('day', a.created_at)::date           as activity_date,
+        a.business_id,
+        coalesce(bl.license_name, '(no license)')       as license_name,
+        a.application_submission_id
+    from {{ ref('stg_application_submission') }} a
+    left join business_license bl
+        on bl.business_id = a.business_id
+    where not a.is_admin_quoting_tool
 ),
 
 quotes as (
     select
-        date_trunc('day', created_at)::date             as activity_date,
-        business_id,
-        license_name,
-        quote_id
-    from {{ ref('stg_quote') }}
+        date_trunc('day', q.created_at)::date           as activity_date,
+        q.business_id,
+        coalesce(bl.license_name, '(no license)')       as license_name,
+        q.quote_id
+    from {{ ref('stg_quote') }} q
+    left join business_license bl
+        on bl.business_id = q.business_id
 ),
 
 policies as (
     select
-        bound_date                                       as activity_date,
-        business_id,
-        license_name,
-        policy_id,
-        premium,
-        estimated_commission
-    from {{ ref('int_policy_revenue') }}
+        p.bound_date                                     as activity_date,
+        p.business_id,
+        coalesce(bl.license_name, '(no license)')       as license_name,
+        p.policy_id,
+        p.premium,
+        p.estimated_commission
+    from {{ ref('int_policy_revenue') }} p
+    left join business_license bl
+        on bl.business_id = p.business_id
 ),
 
 -- anchor on application date × license_name as the grain
